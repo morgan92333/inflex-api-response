@@ -1,4 +1,5 @@
 import { get as getError } from './errors';
+import { getConfig } from './config';
 
 import authentication from './fail/authentication';
 import internal from './fail/internal';
@@ -7,7 +8,7 @@ import notFound from './fail/not-found';
 import response from './fail/response';
 import request from './fail/request';
 
-function createResponse (res, errorCode, apiHttpCode, custom) {
+function createResponse (res, req, errorCode, apiHttpCode, custom) {
     var error = getError(errorCode),
         prefixCode;
 
@@ -19,11 +20,13 @@ function createResponse (res, errorCode, apiHttpCode, custom) {
         return res
             .status(200)
             .json({
-                'error' : true,
-                "code" : '',
-                "type" : '',
-                "title" : '',
-                "detail" : ''
+                'success' : false,
+                'error' : {
+                    "code" : '',
+                    "type" : '',
+                    "title" : '',
+                    "detail" : ''
+                }
             });
     }
 
@@ -44,32 +47,39 @@ function createResponse (res, errorCode, apiHttpCode, custom) {
         + prefixCode.toString() 
         + error['code'].toString(),
 
+        
         json = {
-            'error' : true,
-            "code" : code,
-            "type" : '',
-            "title" : error['title'],
-            "detail" : error['detail']
+            'success' : false,
+            'error' : {
+                "code" : code,
+                "type" : '',
+                "title" : error['title'],
+                "detail" : error['detail']
+            }
         };
 
-    json.type = ''; //Route
+    json.error.type = ''; //Route
 
     if (custom)
-        custom(json);
-
-    //_log('Response error: ' . $data['title'] . ' ['.$code.']', 'error');
+        custom(json.error);
 
     res
         .status(apiHttpCode)
         .json(json);
+
+    let logger = getConfig('log.fail');
+
+    if (logger)
+        logger(req, json.error);
 }
 
-export default function (res, code = null) { 
+export default function (res, req, code = null) { 
     let defaultResponseType = (code, custom) => {
         let resp = response();
 
         createResponse(
             res, 
+            req,
             code,
             resp.httpCode(),
             custom
@@ -83,6 +93,7 @@ export default function (res, code = null) {
             'custom' : (code, custom, httpCode = 200) => {
                 createResponse(
                     res, 
+                    req,
                     code,
                     httpCode,
                     custom
@@ -93,6 +104,7 @@ export default function (res, code = null) {
 
                 createResponse(
                     res, 
+                    req,
                     resp.getResponse(code),
                     resp.httpCode(),
                     custom
@@ -103,6 +115,7 @@ export default function (res, code = null) {
 
                 createResponse(
                     res, 
+                    req,
                     resp.getResponse(code),
                     resp.httpCode(),
                     custom
@@ -113,6 +126,7 @@ export default function (res, code = null) {
 
                 createResponse(
                     res, 
+                    req,
                     resp.getResponse(code),
                     resp.httpCode(),
                     custom
@@ -123,6 +137,7 @@ export default function (res, code = null) {
 
                 createResponse(
                     res, 
+                    req,
                     resp.getResponse(code),
                     resp.httpCode(),
                     custom
@@ -133,6 +148,7 @@ export default function (res, code = null) {
 
                 createResponse(
                     res, 
+                    req,
                     resp.getResponse(code),
                     resp.httpCode(),
                     custom

@@ -2,61 +2,66 @@ import protobuf from 'protobufjs';
 
 import response from './response';
 
-var checkRequest = function (res, req, next) {
-    let protoFilePath = protoFile.replace('.', '/');
+var checkRequest = function (protoFile, res, req, next) {
+    let protoName = protoFile.match(/([^\/]+)$/)[0],
+        protoFilePath = protoFile + '.proto',
 
-    protoFilePath = '/var/www/deckathlon/api/request/' + protoFilePath + '.proto';
- 
-    protobuf.load(protoFilePath, function(err, root) {
-        if (err)
-            throw err;
+        root = new protobuf.Root();
 
-        var AwesomeMessage = root.lookupType(protoFile.charAt(0).toUpperCase() + protoFile.slice(1));
-     
-        var json = req.body;
+    root.load(protoFilePath, { keepCase: true })
+        .then(function(root) { 
+            let protoClass = protoName.charAt(0).toUpperCase() + protoName.slice(1);
 
-        let errMsg = AwesomeMessage.verify(json);
+            var AwesomeMessage = root.lookupType(protoClass);
+        
+            var json = req.body;
 
-        if (errMsg) {
-            return response()
-                .fail(res)
-                .request(error => {
-                    error['detail'] = 'Proto buffer error: ' + errMsg;
-                });
-        }
-     
-        let message = AwesomeMessage.create(json),
-            buffer  = AwesomeMessage.encode(message).finish();
+            let errMsg = AwesomeMessage.verify(json);
 
-        var msg;
-
-        try {
-            msg = AwesomeMessage.decode(buffer);
-        } catch (e) {
-            if (e instanceof protobuf.util.ProtocolError) {
-                console.log(e);
-                return;
-                // e.instance holds the so far decoded message with missing required fields
-            } else {
-                console.log(e);
-                return;
+            if (errMsg) {
+                return response(req, res)
+                    .fail()
+                    .request(error => {
+                        error['detail'] = 'Proto buffer error: ' + errMsg;
+                    });
             }
-        }
+        
+            let message = AwesomeMessage.create(json),
+                buffer  = AwesomeMessage.encode(message).finish();
 
-        AwesomeMessage.toObject(msg, {
-            longs: Number,
-            enums: String,
-            bytes: String
-        });        
+            var msg;
 
-        req.body = msg;
+            try {
+                msg = AwesomeMessage.decode(buffer);
+            } catch (e) {
+                if (e instanceof protobuf.util.ProtocolError) {
+                    console.log(e);
+                    return;
+                    // e.instance holds the so far decoded message with missing required fields
+                } else {
+                    console.log(e);
+                    return;
+                }
+            }
 
-        next();
-    });
+            AwesomeMessage.toObject(msg, {
+                longs: Number,
+                enums: String,
+                bytes: String
+            });        
+
+            req.body = msg;
+
+            next();
+        })
+        .catch(err => {
+            if (err)
+                throw err;
+        });
 }
 
 export default function (proto) {
-    return function (res, req, next) {
+    return function (req, res, next) {
         checkRequest(proto, res, req, next);
     }
 }

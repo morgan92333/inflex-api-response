@@ -1,70 +1,79 @@
 import protobuf from 'protobufjs';
 
+import { getConfig } from './config';
+
 import accepted from './success/accepted';
 import created from './success/created';
 import response from './success/response';
 import simple from './success/simple';
 import another from './success/another';
 
-function createProtoResponse (res, protoFile, apiHttpCode, apiResponse) {
-    let protoFilePath = protoFile.replace('.', '/');
+function createProtoResponse (res, req, protoFile, apiHttpCode, apiResponse) {
+    let protoName = protoFile.match(/([^\/]+)$/)[0],
+        protoFilePath = protoFile + '.proto',
 
-    protoFilePath = '/var/www/deckathlon/api/protobuf/response/' + protoFilePath + '.proto';
- 
-    protobuf.load(protoFilePath, function(err, root) {
-        if (err)
-            throw err;
+        root = new protobuf.Root();
 
-        var AwesomeMessage = root.lookupType(protoFile.charAt(0).toUpperCase() + protoFile.slice(1));
-     
-        var json = {
-            'success' : false
-        };
+    root.load(protoFilePath, { keepCase: true })
+        .then(function(root) {
+            let protoClass = protoName.charAt(0).toUpperCase() + protoName.slice(1);
 
-        if (apiResponse)
-            json['response'] = apiResponse;
+            var AwesomeMessage = root.lookupType(protoClass);
+        
+            var json = {
+                'success' : false
+            };
 
-        let errMsg = AwesomeMessage.verify(json);
+            if (apiResponse)
+                json['response'] = apiResponse;
 
-        if (errMsg)
-            throw Error(errMsg);
-     
-        let message = AwesomeMessage.create(json),
-            buffer  = AwesomeMessage.encode(message).finish();
+            let errMsg = AwesomeMessage.verify(json);
 
-        var msg;
+            if (errMsg)
+                throw Error(errMsg);
+        
+            let message = AwesomeMessage.create(json),
+                buffer  = AwesomeMessage.encode(message).finish();
 
-        try {
-            msg = AwesomeMessage.decode(buffer);
-        } catch (e) {
-            if (e instanceof protobuf.util.ProtocolError) {
-                console.log(e);
-                return;
-                // e.instance holds the so far decoded message with missing required fields
-            } else {
-                console.log(e);
-                return;
+            var msg;
+
+            try {
+                msg = AwesomeMessage.decode(buffer);
+            } catch (e) {
+                if (e instanceof protobuf.util.ProtocolError) {
+                    console.log(e);
+                    return;
+                    // e.instance holds the so far decoded message with missing required fields
+                } else {
+                    console.log(e);
+                    return;
+                }
             }
-        }
 
-        AwesomeMessage.toObject(msg, {
-            longs: Number,
-            enums: String,
-            bytes: String
-        });        
+            AwesomeMessage.toObject(msg, {
+                longs: Number,
+                enums: String,
+                bytes: String
+            });        
 
-        res
-            .status(apiHttpCode)
-            .json(msg);
-    });
+            res
+                .status(apiHttpCode)
+                .json(msg);
+
+            let logger = getConfig('log.success');
+        
+            if (logger)
+                logger(req, msg);
+        });
 }
 
-export default function (res, protoFile, resp = null) {
+export default function (req, res, protoFile, resp = null) {
     let defaultResponseType = function (apiResponse) {
         let resp = response();
 
         createProtoResponse(
             res, 
+            req,
             protoFile, 
             resp.httpCode(),
             resp.getResponse(apiResponse)
@@ -83,24 +92,26 @@ export default function (res, protoFile, resp = null) {
                     .status(resp.httpCode())
                     .json({});
             }, 
-            'created' : () => {
+            'created' : (apiResponse) => {
                 let resp = created();
 
                 return createProtoResponse(
                     res, 
+                    req,
                     protoFile, 
                     resp.httpCode(),
-                    resp.getResponse()
+                    resp.getResponse(apiResponse)
                 );
             }, 
-            'another' : () => {
+            'another' : (apiResponse) => {
                 let resp = another();
 
                 return createProtoResponse(
                     res, 
+                    req,
                     protoFile, 
                     resp.httpCode(),
-                    resp.getResponse()
+                    resp.getResponse(apiResponse)
                 );
             },
             'simple' : () => {
@@ -108,6 +119,7 @@ export default function (res, protoFile, resp = null) {
 
                 return createProtoResponse(
                     res, 
+                    req,
                     protoFile, 
                     resp.httpCode()
                 );

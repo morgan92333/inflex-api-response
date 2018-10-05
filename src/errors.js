@@ -40,6 +40,4 @@ export function get (key) {
 
 export function add (key, value) {
     definedErrors = _.set(definedErrors, key, value);
-
-    console.log(definedErrors);
 }
