@@ -1,14 +1,15 @@
 {
   "name": "inflex-api-response",
   "main": "./response.js",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "author": {
     "name": "Morgan",
     "email": "morgan92333@gmail.com",
     "url": "https://github.com/morgan92333"
   },
   "dependencies": {
-    "lodash": "^4.17.10"
+    "lodash": "^4.17.10",
+    "protobufjs": "^6.8.8"
   },
   "bugs": {
     "url": ""

@@ -5,6 +5,7 @@ import { add as addError } from './errors';
 
 function hasResponseAndRequest(res, req) {
     if (!res) {
+        console.log(res);
         console.log('ERROR: You need send Express response for response(req, res)');
         process.exit();
     } else if (!req) {
