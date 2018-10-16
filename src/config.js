@@ -2,13 +2,8 @@ import _ from 'lodash';
 
 const defaultSettings = {
     'log' : {
-        'success' : (req, response) => {
-
-        },
-
-        'fail' : (req, error) => {
-
-        }
+        'success' : null,
+        'fail' : null
     }
 };
 var settings = defaultSettings;

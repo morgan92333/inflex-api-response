@@ -21,7 +21,7 @@ function createProtoResponse (res, req, protoFile, apiHttpCode, apiResponse) {
             var AwesomeMessage = root.lookupType(protoClass);
         
             var json = {
-                'success' : false
+                'success' : true
             };
 
             if (apiResponse)

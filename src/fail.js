@@ -9,6 +9,20 @@ import response from './fail/response';
 import request from './fail/request';
 
 function createResponse (res, req, errorCode, apiHttpCode, custom) {
+    let logger = getConfig('log.fail');
+
+    if (typeof errorCode !== 'string') {
+        if (!logger) {
+            console.error('Invalid error code');
+            console.error(errorCode);
+        } else {
+            logger(req, 'Invalid error code');
+            logger(req, errorCode);
+        }
+        process.exit();
+        return;
+    }
+
     var error = getError(errorCode),
         prefixCode;
 
@@ -66,8 +80,6 @@ function createResponse (res, req, errorCode, apiHttpCode, custom) {
     res
         .status(apiHttpCode)
         .json(json);
-
-    let logger = getConfig('log.fail');
 
     if (logger)
         logger(req, json.error);

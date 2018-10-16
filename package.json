@@ -1,7 +1,7 @@
 {
   "name": "inflex-api-response",
   "main": "./response.js",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "author": {
     "name": "Morgan",
     "email": "morgan92333@gmail.com",
@@ -40,6 +40,8 @@
     "url": ""
   },
   "scripts": {
+    "only-dev": "npm install --only=dev",
+    "publish": "npm run build && npm publish",
     "watch-node": "nodemon --exec babel-node --presets env,stage-2 examples/simple-config.js",
     "build": "babel src -d lib"
   }
