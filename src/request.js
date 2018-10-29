@@ -1,6 +1,7 @@
 import protobuf from 'protobufjs';
 
 import response from './response';
+import { createClassName } from './helpers';
 
 var checkRequest = function (protoFile, res, req, next) {
     let protoName = protoFile.match(/([^\/]+)$/)[0],
@@ -10,7 +11,7 @@ var checkRequest = function (protoFile, res, req, next) {
 
     root.load(protoFilePath, { keepCase: true })
         .then(function(root) { 
-            let protoClass = protoName.charAt(0).toUpperCase() + protoName.slice(1);
+            let protoClass = createClassName(protoName);
 
             var AwesomeMessage = root.lookupType(protoClass);
         

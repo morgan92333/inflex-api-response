@@ -1,6 +1,7 @@
 import protobuf from 'protobufjs';
 
 import { getConfig } from './config';
+import { createClassName } from './helpers';
 
 import accepted from './success/accepted';
 import created from './success/created';
@@ -16,7 +17,7 @@ function createProtoResponse (res, req, protoFile, apiHttpCode, apiResponse) {
 
     root.load(protoFilePath, { keepCase: true })
         .then(function(root) {
-            let protoClass = protoName.charAt(0).toUpperCase() + protoName.slice(1);
+            let protoClass = createClassName(protoName);
 
             var AwesomeMessage = root.lookupType(protoClass);
         
@@ -69,14 +70,14 @@ function createProtoResponse (res, req, protoFile, apiHttpCode, apiResponse) {
 
 export default function (req, res, protoFile, resp = null) {
     let defaultResponseType = function (apiResponse) {
-        let resp = response();
+        let r = response();
 
         createProtoResponse(
             res, 
             req,
             protoFile, 
-            resp.httpCode(),
-            resp.getResponse(apiResponse)
+            r.httpCode(),
+            r.getResponse(apiResponse)
         );
     };
 
