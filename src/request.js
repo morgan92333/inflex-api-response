@@ -1,4 +1,5 @@
 import protobuf from 'protobufjs';
+import _ from 'lodash';
 
 import response from './response';
 import { createClassName } from './helpers';
@@ -15,7 +16,10 @@ var checkRequest = function (protoFile, res, req, next) {
 
             var AwesomeMessage = root.lookupType(protoClass);
         
-            var json = req.body;
+            var body  = req.body,
+                query = req.query,
+                
+                json = _.merge(body, query);
 
             let errMsg = AwesomeMessage.verify(json);
 
@@ -51,7 +55,21 @@ var checkRequest = function (protoFile, res, req, next) {
                 bytes: String
             });        
 
-            req.body = msg;
+            var newBody  = {},
+                newQuery = {};
+
+            if (msg && msg.$type && msg.$type._fieldsArray) {
+                for (let field of msg.$type._fieldsArray) {
+                    if (typeof req.query[field.name] !== 'undefined')
+                        newQuery[field.name] = req.query[field.name];
+                    else if (typeof req.body[field.name] !== 'undefined')
+                        newBody[field.name] = req.body[field.name];
+                }
+
+                req.body  = newBody;
+                req.query = newQuery;
+            } else
+                console.error('_fieldsArray not found in protobuff');
 
             next();
         })

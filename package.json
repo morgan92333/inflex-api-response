@@ -1,7 +1,7 @@
 {
   "name": "inflex-api-response",
   "main": "./response.js",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "author": {
     "name": "Morgan",
     "email": "morgan92333@gmail.com",
