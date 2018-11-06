@@ -1,7 +1,9 @@
 import protobuf from 'protobufjs';
 import _ from 'lodash';
 
+
 import response from './response';
+import { getConfig } from './config';
 import { createClassName } from './helpers';
 
 var checkRequest = function (protoFile, res, req, next) {
@@ -12,32 +14,37 @@ var checkRequest = function (protoFile, res, req, next) {
 
     root.load(protoFilePath, { keepCase: true })
         .then(function(root) { 
-            let protoClass = createClassName(protoName);
-
-            var AwesomeMessage = root.lookupType(protoClass);
+            var protoClass   = createClassName(protoName),
+                protoRequest = root.lookupType(protoClass),
         
-            var body  = req.body,
-                query = req.query,
-                
-                json = _.merge(body, query);
+                buffer;
 
-            let errMsg = AwesomeMessage.verify(json);
+            if (req.is('application/octet-stream')) {
+                buffer = req.raw;
+            } else {
+                let body  = req.body,
+                    query = req.query,
+                    
+                    json = _.merge(body, query),
 
-            if (errMsg) {
-                return response(req, res)
-                    .fail()
-                    .request(error => {
-                        error['detail'] = 'Proto buffer error: ' + errMsg;
-                    });
+                    message = protoRequest.create(json);
+
+                try {
+                    buffer  = protoRequest.encode(message).finish();
+                } catch (e) {
+                    return response(req, res)
+                        .fail()
+                        .request(error => {
+                            error['title'] = e.toString().replace(/[\"]+/g, '');
+                            error['detail'] = JSON.stringify({ body : body, query : query }).replace(/[\"]+/g, '');
+                        });
+                }
             }
-        
-            let message = AwesomeMessage.create(json),
-                buffer  = AwesomeMessage.encode(message).finish();
 
             var msg;
 
             try {
-                msg = AwesomeMessage.decode(buffer);
+                msg = protoRequest.decode(buffer);
             } catch (e) {
                 if (e instanceof protobuf.util.ProtocolError) {
                     console.log(e);
@@ -49,11 +56,15 @@ var checkRequest = function (protoFile, res, req, next) {
                 }
             }
 
-            AwesomeMessage.toObject(msg, {
+            protoRequest.toObject(msg, {
                 longs: Number,
                 enums: String,
                 bytes: String
-            });        
+            });
+
+            let logger = getConfig('log.request');
+    
+            if (logger) logger(req, msg);
 
             var newBody  = {},
                 newQuery = {};
@@ -62,8 +73,8 @@ var checkRequest = function (protoFile, res, req, next) {
                 for (let field of msg.$type._fieldsArray) {
                     if (typeof req.query[field.name] !== 'undefined')
                         newQuery[field.name] = req.query[field.name];
-                    else if (typeof req.body[field.name] !== 'undefined')
-                        newBody[field.name] = req.body[field.name];
+                    else if (msg[field.name])
+                        newBody[field.name] = msg[field.name];
                 }
 
                 req.body  = newBody;
@@ -71,7 +82,17 @@ var checkRequest = function (protoFile, res, req, next) {
             } else
                 console.error('_fieldsArray not found in protobuff');
 
-            next();
+            let errMsg = protoRequest.verify(_.merge(newBody, newQuery));
+
+            if (errMsg) {
+                return response(req, res)
+                    .fail()
+                    .request(error => {
+                        error['title']  = 'Protobuffer error';
+                        error['detail'] = errMsg;
+                    });
+            } else
+                next();
         })
         .catch(err => {
             if (err)
@@ -81,6 +102,26 @@ var checkRequest = function (protoFile, res, req, next) {
 
 export default function (proto) {
     return function (req, res, next) {
-        checkRequest(proto, res, req, next);
+        if (!req.is('application/octet-stream')) 
+            return checkRequest(proto, res, req, next);
+
+        var data = [];
+
+        req.on('data', function(chunk) {
+            data.push(chunk);
+        });
+
+        req.on('end', function() {
+            if (data.length <= 0 )
+                return checkRequest(proto, res, req, next);
+
+            data = Buffer.concat(data);
+            
+            //console.log('Received buffer', data);
+
+            req.raw = data
+
+            checkRequest(proto, res, req, next);
+        });
     }
 }

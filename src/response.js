@@ -22,7 +22,7 @@ export default function (req = null, res = null) {
             return success(req, res, protoFile, apiResponse);
         },
 
-        'fail' : (code) => {
+        'fail' : (protoFile, code) => {
             hasResponseAndRequest(req, res);
 
             if (code && typeof code !== 'string') {
@@ -30,7 +30,7 @@ export default function (req = null, res = null) {
                 process.exit();
             }
 
-            return fail(res, req, code);
+            return fail(res, req, protoFile, code);
         },
 
         'addError' : (key, value) => {

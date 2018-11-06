@@ -17,54 +17,60 @@ function createProtoResponse (res, req, protoFile, apiHttpCode, apiResponse) {
 
     root.load(protoFilePath, { keepCase: true })
         .then(function(root) {
-            let protoClass = createClassName(protoName);
+            var protoClass = createClassName(protoName),
 
-            var AwesomeMessage = root.lookupType(protoClass);
-        
-            var json = {
-                'success' : true
-            };
+                protoResponse = root.lookupType(protoClass),
+            
+                json = {
+                    'success' : true
+                };
 
             if (apiResponse)
                 json['response'] = apiResponse;
 
-            let errMsg = AwesomeMessage.verify(json);
+            let errMsg = protoResponse.verify(json);
 
             if (errMsg)
                 throw Error(errMsg);
         
-            let message = AwesomeMessage.create(json),
-                buffer  = AwesomeMessage.encode(message).finish();
+            let message = protoResponse.create(json),
 
-            var msg;
+                logger = getConfig('log.success');
 
-            try {
-                msg = AwesomeMessage.decode(buffer);
-            } catch (e) {
-                if (e instanceof protobuf.util.ProtocolError) {
-                    console.log(e);
-                    return;
-                    // e.instance holds the so far decoded message with missing required fields
-                } else {
-                    console.log(e);
-                    return;
+            if (req.get('Content-type') === 'application/json') {
+                let buffer  = protoResponse.encode(message).finish(),
+
+                    msg;
+
+                try {
+                    msg = protoResponse.decode(buffer);
+                } catch (e) {
+                    if (e instanceof protobuf.util.ProtocolError) {
+                        console.log(e);
+                        return;
+                        // e.instance holds the so far decoded message with missing required fields
+                    } else {
+                        console.log(e);
+                        return;
+                    }
                 }
+
+                protoResponse.toObject(msg, {
+                    longs: Number,
+                    enums: String,
+                    bytes: String
+                });        
+
+                res
+                    .status(apiHttpCode)
+                    .json(msg);
+            
+                if (logger) logger(req, msg);
+            } else {
+                if (logger) logger(req, json);
+
+                res.send(protoResponse.encode(message).finish());
             }
-
-            AwesomeMessage.toObject(msg, {
-                longs: Number,
-                enums: String,
-                bytes: String
-            });        
-
-            res
-                .status(apiHttpCode)
-                .json(msg);
-
-            let logger = getConfig('log.success');
-        
-            if (logger)
-                logger(req, msg);
         });
 }
 

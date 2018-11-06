@@ -3,7 +3,9 @@ import _ from 'lodash';
 const defaultSettings = {
     'log' : {
         'success' : null,
-        'fail' : null
+        'fail' : null,
+        'request' : null,
+        'response' : null
     }
 };
 var settings = defaultSettings;

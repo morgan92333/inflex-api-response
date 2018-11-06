@@ -1,5 +1,8 @@
+import protobuf from 'protobufjs';
+
 import { get as getError } from './errors';
 import { getConfig } from './config';
+import { createClassName } from './helpers';
 
 import authentication from './fail/authentication';
 import internal from './fail/internal';
@@ -8,7 +11,7 @@ import notFound from './fail/not-found';
 import response from './fail/response';
 import request from './fail/request';
 
-function createResponse (res, req, errorCode, apiHttpCode, custom) {
+function createResponse (protoFile, res, req, errorCode, apiHttpCode, custom) {
     let logger = getConfig('log.fail');
 
     if (typeof errorCode !== 'string') {
@@ -31,17 +34,12 @@ function createResponse (res, req, errorCode, apiHttpCode, custom) {
     if (explode.length != 2) {
         console.log('Invalid error code: ' + errorCode);
 
-        return res
-            .status(200)
-            .json({
-                'success' : false,
-                'error' : {
-                    "code" : '',
-                    "type" : '',
-                    "title" : '',
-                    "detail" : ''
-                }
-            });
+        return errorResponse(req, res, {
+            "code" : '',
+            "type" : '',
+            "title" : 'Invalid error code',
+            "detail" : ''
+        });
     }
 
     let group           = explode[0],
@@ -56,6 +54,12 @@ function createResponse (res, req, errorCode, apiHttpCode, custom) {
         prefixCode = getError(group + '.prefix_code');
     }
 
+    if (!prefixCode) {
+        console.error('ERROR: Missing prefix_code from addError');
+
+        prefixCode = '--';
+    }
+
     let code = 
         apiHttpCode.toString() 
         + prefixCode.toString() 
@@ -63,33 +67,67 @@ function createResponse (res, req, errorCode, apiHttpCode, custom) {
 
         
         json = {
-            'success' : false,
-            'error' : {
-                "code" : code,
-                "type" : '',
-                "title" : error['title'],
-                "detail" : error['detail']
-            }
+            "code" : code,
+            "type" : '',
+            "title" : error['title'],
+            "detail" : error['detail']
         };
 
-    json.error.type = ''; //Route
+    json.type = ''; //Route
 
     if (custom)
-        custom(json.error);
+        custom(json);
 
-    res
-        .status(apiHttpCode)
-        .json(json);
-
-    if (logger)
-        logger(req, json.error);
+    errorResponse(req, res, protoFile, json);
 }
 
-export default function (res, req, code = null) { 
+function errorResponse (req, res, protoFile, json) {
+    let protoName = protoFile.match(/([^\/]+)$/)[0],
+        protoFilePath = protoFile + '.proto';
+
+    var logger = getConfig('log.fail'),
+
+        root = new protobuf.Root();
+
+    json = {
+        'success' : false,
+        'error' : json
+    };
+
+    root.load(protoFilePath, { keepCase: true })
+        .then(function(root) {
+            let protoError = root.lookupType(createClassName(protoName)),
+                    
+                message = protoError.create(json);
+
+            if (req.get('Content-type') === 'application/json') {
+                let buffer  = protoError.encode(message).finish(),
+
+                    msg = protoError.decode(buffer),
+                    
+                    apiHttpCode = json.error.code 
+                        ? json.error.code.substr(0, 3) 
+                        : 200;
+
+                protoError.toObject(msg);        
+                console.log(msg);
+                res
+                    .status(apiHttpCode)
+                    .json(msg);
+            } else
+                res.send(protoError.encode(message).finish());
+
+            if (logger)
+                logger(req, json.error);
+        });
+}
+
+export default function (res, req, protoFile, code = null) { 
     let defaultResponseType = (code, custom) => {
         let resp = response();
 
         createResponse(
+            protoFile,
             res, 
             req,
             code,
@@ -104,6 +142,7 @@ export default function (res, req, code = null) {
         return {
             'custom' : (code, custom, httpCode = 200) => {
                 createResponse(
+                    protoFile,
                     res, 
                     req,
                     code,
@@ -115,6 +154,7 @@ export default function (res, req, code = null) {
                 let resp = request();
 
                 createResponse(
+                    protoFile,
                     res, 
                     req,
                     resp.getResponse(code),
@@ -126,6 +166,7 @@ export default function (res, req, code = null) {
                 let resp = authentication();
 
                 createResponse(
+                    protoFile,
                     res, 
                     req,
                     resp.getResponse(code),
@@ -137,6 +178,7 @@ export default function (res, req, code = null) {
                 let resp = internal();
 
                 createResponse(
+                    protoFile,
                     res, 
                     req,
                     resp.getResponse(code),
@@ -148,6 +190,7 @@ export default function (res, req, code = null) {
                 let resp = method();
 
                 createResponse(
+                    protoFile,
                     res, 
                     req,
                     resp.getResponse(code),
@@ -159,6 +202,7 @@ export default function (res, req, code = null) {
                 let resp = notFound();
 
                 createResponse(
+                    protoFile,
                     res, 
                     req,
                     resp.getResponse(code),
