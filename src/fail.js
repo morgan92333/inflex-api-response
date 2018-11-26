@@ -110,7 +110,7 @@ function errorResponse (req, res, protoFile, json) {
                         : 200;
 
                 protoError.toObject(msg);        
-                console.log(msg);
+
                 res
                     .status(apiHttpCode)
                     .json(msg);
@@ -118,7 +118,7 @@ function errorResponse (req, res, protoFile, json) {
                 res.send(protoError.encode(message).finish());
 
             if (logger)
-                logger(req, json.error);
+                logger(req, json.error, protoFilePath);
         });
 }
 

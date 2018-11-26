@@ -1,8 +1,6 @@
 import protobuf from 'protobufjs';
 import _ from 'lodash';
 
-
-import response from './response';
 import { getConfig } from './config';
 import { createClassName } from './helpers';
 
@@ -32,12 +30,7 @@ var checkRequest = function (protoFile, res, req, next) {
                 try {
                     buffer  = protoRequest.encode(message).finish();
                 } catch (e) {
-                    return response(req, res)
-                        .fail()
-                        .request(error => {
-                            error['title'] = e.toString().replace(/[\"]+/g, '');
-                            error['detail'] = JSON.stringify({ body : body, query : query }).replace(/[\"]+/g, '');
-                        });
+                    return res.status(400).send(e.toString().replace(/[\"]+/g, ''));
                 }
             }
 
@@ -64,16 +57,18 @@ var checkRequest = function (protoFile, res, req, next) {
 
             let logger = getConfig('log.request');
     
-            if (logger) logger(req, msg);
+            if (logger) logger(req, msg, protoFilePath);
 
             var newBody  = {},
                 newQuery = {};
 
             if (msg && msg.$type && msg.$type._fieldsArray) {
+                let jsonField = msg.toJSON();
+
                 for (let field of msg.$type._fieldsArray) {
                     if (typeof req.query[field.name] !== 'undefined')
                         newQuery[field.name] = req.query[field.name];
-                    else if (msg[field.name])
+                    else if (typeof jsonField[field.name] !== 'undefined')
                         newBody[field.name] = msg[field.name];
                 }
 
@@ -85,12 +80,9 @@ var checkRequest = function (protoFile, res, req, next) {
             let errMsg = protoRequest.verify(_.merge(newBody, newQuery));
 
             if (errMsg) {
-                return response(req, res)
-                    .fail()
-                    .request(error => {
-                        error['title']  = 'Protobuffer error';
-                        error['detail'] = errMsg;
-                    });
+                console.error(errMsg);
+                
+                return res.status(400).send(errMsg);
             } else
                 next();
         })

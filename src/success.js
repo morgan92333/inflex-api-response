@@ -65,9 +65,9 @@ function createProtoResponse (res, req, protoFile, apiHttpCode, apiResponse) {
                     .status(apiHttpCode)
                     .json(msg);
             
-                if (logger) logger(req, msg);
+                if (logger) logger(req, msg, protoFilePath);
             } else {
-                if (logger) logger(req, json);
+                if (logger) logger(req, json, protoFilePath);
 
                 res.send(protoResponse.encode(message).finish());
             }

@@ -1,7 +1,7 @@
 {
   "name": "inflex-api-response",
   "main": "./response.js",
-  "version": "0.0.9",
+  "version": "0.0.13",
   "author": {
     "name": "Morgan",
     "email": "morgan92333@gmail.com",
@@ -21,6 +21,7 @@
     "babel-cli": "^6.26.0",
     "babel-preset-env": "^1.7.0",
     "babel-preset-stage-2": "^6.24.1"
+
   },
   "engines": {},
   "homepage": "https://github.com/Morgan92333/inflex-api-response",
